@@ -22,11 +22,10 @@ type RateLimiter struct {
 	Window         time.Duration
 }
 
-func NewRate(numberAllowed int, perTime time.Duration) RateLimiter {
-	reqMap := make(map[int]*RequestsData)
-	return RateLimiter{
+func NewRate(numberAllowed int, perTime time.Duration) *RateLimiter {
+	return &RateLimiter{
 		mu:             sync.Mutex{},
-		UserRequestMap: reqMap,
+		UserRequestMap: map[int]*RequestsData{},
 		MaxRequests:    numberAllowed,
 		Window:         perTime,
 	}
@@ -47,15 +46,16 @@ func (r *RateLimiter) RateLimit(customerId int) bool {
 }
 
 func (r *RateLimiter) getRequestData(customerId int) *RequestsData {
-	rd, ok := r.UserRequestMap[customerId]
-
-	if !ok {
-		r.mu.Lock()
-		r.UserRequestMap[customerId] = &RequestsData{
+	var rd *RequestsData
+	var ok bool
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if rd, ok = r.UserRequestMap[customerId]; !ok {
+		rd = &RequestsData{
 			Count:   1,
 			Initial: time.Now(),
 		}
-		r.mu.Unlock()
+		r.UserRequestMap[customerId] = rd
 	}
 
 	return rd
